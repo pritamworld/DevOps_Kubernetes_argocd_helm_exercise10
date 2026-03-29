@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: hellodocker
-          image: pritamworld/hellodocker:b6a2c2efbb82c183d2b5bc4d95abf4f1a9aaa58d #Replace with your image <dockerusername>/hellodocker:latest
+          image: pritamworld/hellodocker:latest #Replace with your image <dockerusername>/hellodocker:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
