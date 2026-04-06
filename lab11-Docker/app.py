@@ -37,7 +37,7 @@ def hostname():
 
 @app.route("/greet")
 def greet():
-    return "<h1>Welcome to Minikube, kubernetes, monitoring(Grafana & Prometheus) and argoCD examples</h1>"
+    return "<h1>Welcome to Minikube, kubernetes, monitoring (Grafana & Prometheus setup using helm) and argoCD examples</h1>"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
