@@ -33,11 +33,11 @@ def metrics():
 @app.route("/hostname")
 def hostname():
     pod_name = socket.gethostname()
-    return f"<h1>Host name: {pod_name} </h1>", 200
+    return f"<h1>Host name is: {pod_name} </h1>", 200
 
 @app.route("/greet")
 def greet():
-    return "<h1>Welcome to Minikube, kubernetes and argoCD examples</h1>"
+    return "<h1>Welcome to Minikube, kubernetes, monitoring(Grafana & Prometheus) and argoCD examples</h1>"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=80)
