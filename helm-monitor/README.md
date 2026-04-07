@@ -10,6 +10,8 @@ I’ll assume:
 
 ## 1 Install Helm
 
+- https://helm.sh/docs/intro/install/
+
 ## 2 Add health & resource monitoring to your Deployment
 
 We already added `livenessProbe` and `readinessProbe` earlier, but let’s be explicit and add resource requests/limits and useful labels that monitoring tools can use:
