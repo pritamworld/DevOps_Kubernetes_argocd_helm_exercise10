@@ -13,13 +13,17 @@ provider "azurerm" {
   features {}
 }
 
+# ----------------------------
 # Resource Group
+# ----------------------------
 resource "azurerm_resource_group" "lab" {
-  name     = "ci-cd-lab-rg"
+  name     = var.resource_group_name
   location = var.location
 }
 
-# Virtual Network
+# ----------------------------
+# Networking
+# ----------------------------
 resource "azurerm_virtual_network" "lab_vnet" {
   name                = "ci-cd-lab-vnet"
   address_space       = ["10.0.0.0/16"]
@@ -35,7 +39,9 @@ resource "azurerm_subnet" "lab_subnet" {
   address_prefixes     = ["10.0.1.0/24"]
 }
 
+# ----------------------------
 # Public IP
+# ----------------------------
 resource "azurerm_public_ip" "lab_ip" {
   name                = "ci-cd-lab-ip"
   location            = azurerm_resource_group.lab.location
@@ -47,7 +53,9 @@ resource "azurerm_public_ip" "lab_ip" {
   domain_name_label = "ci-cd-lab-unique123" # optional
 }
 
-# Network Security Group (like AWS Security Group)
+# --------------------------------------------------------
+# NSG (Network Security Group (like AWS Security Group))
+# --------------------------------------------------------
 resource "azurerm_network_security_group" "lab_nsg" {
   name                = "ci-cd-lab-nsg"
   location            = azurerm_resource_group.lab.location
@@ -102,7 +110,10 @@ resource "azurerm_network_security_group" "lab_nsg" {
   }
 }
 
-# Network Interface
+
+# ----------------------------
+# NIC (Network Interface)
+# ----------------------------
 resource "azurerm_network_interface" "lab_nic" {
   name                = "ci-cd-lab-nic"
   location            = azurerm_resource_group.lab.location
@@ -122,20 +133,23 @@ resource "azurerm_network_interface_security_group_association" "lab_assoc" {
   network_security_group_id = azurerm_network_security_group.lab_nsg.id
 }
 
-# Linux VM (Ubuntu 22.04 LTS)
+
+# ------------------------------------
+# VM (Linux VM (Ubuntu 22.04 LTS))
+# ------------------------------------
 resource "azurerm_linux_virtual_machine" "lab_vm" {
   name                = "ci-cd-lab-vm"
   resource_group_name = azurerm_resource_group.lab.name
   location            = azurerm_resource_group.lab.location
   size                = var.instance_type
-  admin_username      = "azureuser"
+  admin_username      = var.admin_username
 
   network_interface_ids = [
     azurerm_network_interface.lab_nic.id
   ]
 
   admin_ssh_key {
-    username   = "azureuser"
+    username   = var.admin_username
     public_key = var.public_key
   }
 
@@ -151,6 +165,12 @@ resource "azurerm_linux_virtual_machine" "lab_vm" {
     sku       = "22_04-lts"
     version   = "latest"
   }
+
+
+  # ----------------------------
+  # Cloud-init bootstrap
+  # ----------------------------
+  custom_data = base64encode(file("${path.module}/cloud-init.yaml"))
 
   tags = {
     Name = "ci-cd-lab-vm"

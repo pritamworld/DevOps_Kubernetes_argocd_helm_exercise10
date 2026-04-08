@@ -1,0 +1,64 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - python3-pip
+
+write_files:
+  - path: /home/azureuser/playbook.yml
+    permissions: "0755"
+    content: |
+      ---
+      - name: Bootstrap system
+        hosts: localhost
+        become: yes
+
+        tasks:
+          - name: Ensure Docker is running
+            service:
+              name: docker
+              state: started
+              enabled: true
+
+          - name: Install Kubernetes Python client
+            pip:
+              name: kubernetes
+
+          - name: Create success file
+            copy:
+              dest: /home/azureuser/ansible-success.txt
+              content: "Ansible completed successfully"
+
+runcmd:
+  # Docker
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  - add-apt-repository "deb https://download.docker.com/linux/ubuntu jammy stable"
+  - apt-get update -y
+  - apt-get install -y docker-ce docker-ce-cli containerd.io
+  - usermod -aG docker azureuser
+
+  # Ansible
+  - add-apt-repository --yes --update ppa:ansible/ansible
+  - apt-get install -y ansible
+
+  # kubectl
+  - curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - install -m 0755 kubectl /usr/local/bin/kubectl
+
+  # kubeadm + kubelet
+  - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/k8s.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/k8s.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" > /etc/apt/sources.list.d/k8s.list
+  - apt-get update -y
+  - apt-get install -y kubelet kubeadm
+  - apt-mark hold kubelet kubeadm
+
+  # Helm
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+  # Run Ansible
+  - sudo -u azureuser ansible-playbook /home/azureuser/playbook.yml

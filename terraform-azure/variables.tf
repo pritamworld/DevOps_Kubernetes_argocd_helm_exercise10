@@ -1,7 +1,19 @@
+variable "resource_group_name" {
+  default = "ci-cd-lab-rg"
+}
+
 variable "location" {
   description = "Azure region to deploy resources"
   type        = string
   default     = "Canada Central"
+}
+
+variable "vm_size" {
+  default = "Standard_B2s"
+}
+
+variable "admin_username" {
+  default = "azureuser"
 }
 
 variable "public_key" {
