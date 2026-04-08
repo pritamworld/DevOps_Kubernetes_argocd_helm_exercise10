@@ -1,0 +1,158 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+
+packages:
+  - curl
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - python3-pip
+  - git
+
+write_files:
+  - path: /home/azureuser/bootstrap-playbook.yml
+    permissions: "0755"
+    content: |
+      ---
+      - name: Full DevOps Bootstrap
+        hosts: localhost
+        become: yes
+
+        vars:
+          kubeconfig: /etc/kubernetes/admin.conf
+
+        tasks:
+
+          # ----------------------------
+          # Initialize Kubernetes
+          # ----------------------------
+          - name: Initialize cluster
+            command: kubeadm init --pod-network-cidr=10.244.0.0/16
+            args:
+              creates: /etc/kubernetes/admin.conf
+
+          - name: Setup kubeconfig for user
+            shell: |
+              mkdir -p /home/azureuser/.kube
+              cp -i {{ kubeconfig }} /home/azureuser/.kube/config
+              chown azureuser:azureuser /home/azureuser/.kube/config
+
+          # ----------------------------
+          # Install Flannel CNI
+          # ----------------------------
+          - name: Install Flannel
+            become_user: azureuser
+            command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+            environment:
+              KUBECONFIG: "{{ kubeconfig }}"
+
+          # ----------------------------
+          # Install Helm repos
+          # ----------------------------
+          - name: Add Helm repos
+            become_user: azureuser
+            shell: |
+              helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+              helm repo add grafana https://grafana.github.io/helm-charts
+              helm repo update
+
+          # ----------------------------
+          # Install Prometheus
+          # ----------------------------
+          - name: Install Prometheus
+            become_user: azureuser
+            command: >
+              helm install prometheus prometheus-community/kube-prometheus-stack
+            environment:
+              KUBECONFIG: "{{ kubeconfig }}"
+
+          # ----------------------------
+          # Install Grafana
+          # ----------------------------
+          - name: Install Grafana
+            become_user: azureuser
+            command: >
+              helm install grafana grafana/grafana
+            environment:
+              KUBECONFIG: "{{ kubeconfig }}"
+
+          # ----------------------------
+          # Deploy Sample App
+          # ----------------------------
+          - name: Deploy sample nginx app
+            become_user: azureuser
+            command: kubectl create deployment nginx --image=nginx
+            environment:
+              KUBECONFIG: "{{ kubeconfig }}"
+
+          - name: Expose nginx
+            become_user: azureuser
+            command: kubectl expose deployment nginx --port=80 --type=NodePort
+            environment:
+              KUBECONFIG: "{{ kubeconfig }}"
+
+          # ----------------------------
+          # Ansible Pull from GitHub
+          # ----------------------------
+          - name: Run ansible-pull
+            become_user: azureuser
+            command: >
+              ansible-pull -U https://github.com/YOUR_USERNAME/YOUR_REPO.git
+
+          # ----------------------------
+          # Success marker
+          # ----------------------------
+          - name: Mark completion
+            copy:
+              dest: /home/azureuser/lab-ready.txt
+              content: "FULL DEVOPS LAB READY 🚀"
+
+runcmd:
+  # ----------------------------
+  # Docker
+  # ----------------------------
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+  - add-apt-repository "deb https://download.docker.com/linux/ubuntu jammy stable"
+  - apt-get update -y
+  - apt-get install -y docker-ce containerd.io
+  - usermod -aG docker azureuser
+
+  # ----------------------------
+  # Ansible
+  # ----------------------------
+  - add-apt-repository --yes --update ppa:ansible/ansible
+  - apt-get install -y ansible
+
+  # ----------------------------
+  # Kubernetes tools
+  # ----------------------------
+  - curl -LO "https://dl.k8s.io/release/$(curl -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+  - install -m 0755 kubectl /usr/local/bin/kubectl
+
+  - curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/k8s.gpg
+  - echo "deb [signed-by=/etc/apt/keyrings/k8s.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" > /etc/apt/sources.list.d/k8s.list
+  - apt-get update -y
+  - apt-get install -y kubelet kubeadm
+  - apt-mark hold kubelet kubeadm
+
+  # ----------------------------
+  # Helm
+  # ----------------------------
+  - curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+  # ----------------------------
+  # GitHub Actions Runner (optional)
+  # ----------------------------
+  - mkdir -p /actions-runner && cd /actions-runner
+  - curl -o actions-runner.tar.gz -L https://github.com/actions/runner/releases/latest/download/actions-runner-linux-x64.tar.gz
+  - tar xzf actions-runner.tar.gz
+
+  # ⚠️ Replace with your repo + token
+  # - ./config.sh --url https://github.com/YOUR_USERNAME/YOUR_REPO --token YOUR_TOKEN --unattended
+  # - ./run.sh &
+
+  # ----------------------------
+  # Run Ansible Bootstrap
+  # ----------------------------
+  - sudo -u azureuser ansible-playbook /home/azureuser/bootstrap-playbook.yml
